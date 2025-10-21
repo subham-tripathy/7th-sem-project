@@ -1,896 +1,789 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import {
-  Building2,
-  Filter,
   Plus,
+  Edit2,
+  Trash2,
+  Search,
   Download,
-  UserCheck,
-  Award,
-  MapPin,
   Star,
-  Upload,
-  Settings,
-  Sparkles,
   Save,
-  X,
-} from "lucide-react";
+  Upload,
+  Users,
+  Briefcase,
+  TrendingUp,
+  Filter,
+} from 'lucide-react';
+import { backendURL } from './functions';
+import { useAuth } from '../context/AuthContext';
+import { jwtDecode } from 'jwt-decode';
 
-export default function CompanyDashboard() {
-  const [isDark, setIsDark] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [showJobPostModal, setShowJobPostModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
+export default function CompanyHomePage() {
+  const { user } = useAuth
+  // State Management
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [jobs, setJobs] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [isAddingJob, setIsAddingJob] = useState(false);
+  const [isEditingJob, setIsEditingJob] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    totalJobs: 0,
+    totalApplications: 0,
+    shortlisted: 0,
+    selected: 0
+  });
+
+  // Form States
+  const [jobForm, setJobForm] = useState({
+    title: '',
+    description: '',
+    eligibility: '',
+    skills: '',
+    ctc: '',
+    location: '',
+    deadline: ''
+  });
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    setIsDark(mediaQuery.matches);
-    const handleChange = (e) => setIsDark(e.matches);
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+    fetchJobs();
+    fetchStats();
   }, []);
-
-  const aiRecommendedCandidates = [
-    {
-      id: 1,
-      name: "Ananya Patel",
-      matchScore: 95,
-      college: "IIT Bombay",
-      cgpa: 9.2,
-      skills: ["React", "Node.js", "Python", "AWS"],
-      resumeUrl: "#",
-      shortlisted: false,
-    },
-    {
-      id: 2,
-      name: "Vikram Singh",
-      matchScore: 92,
-      college: "BITS Pilani",
-      cgpa: 8.9,
-      skills: ["Java", "Spring Boot", "Docker", "Kubernetes"],
-      resumeUrl: "#",
-      shortlisted: false,
-    },
-    {
-      id: 3,
-      name: "Priya Sharma",
-      matchScore: 88,
-      college: "IIT Delhi",
-      cgpa: 9.0,
-      skills: ["Python", "Django", "PostgreSQL", "Redis"],
-      resumeUrl: "#",
-      shortlisted: true,
-    },
-  ];
-
-  const features = [
-    {
-      title: "Create Job Posting",
-      func: () => {
-        setShowJobPostModal(true);
-      },
-      icon: Plus,
-      color: isDark ? "from-blue-400 to-blue-600" : "from-blue-500 to-blue-700",
-    },
-    {
-      title: "AI Recommended",
-      func: () => {
-        setActiveTab("candidates");
-      },
-      icon: Sparkles,
-      color: isDark
-        ? "from-emerald-400 to-emerald-600"
-        : "from-emerald-500 to-emerald-700",
-    },
-    {
-      title: "Shortlisted",
-      func: () => {
-        setActiveTab("shortlisted");
-      },
-      icon: UserCheck,
-      color: isDark
-        ? "from-purple-400 to-purple-600"
-        : "from-purple-500 to-purple-700",
-    },
-    {
-      title: "Offers Released",
-      func: () => {
-        setActiveTab("results");
-      },
-      icon: Award,
-      color: isDark
-        ? "from-orange-400 to-orange-600"
-        : "from-orange-500 to-orange-700",
-    },
-  ];
-
-  const tabContent = {
-    overview: "Overview",
-    jobs: "Job Postings",
-    candidates: "AI Recommendations",
-    shortlisted: "Shortlisted",
-    results: "Drive Results",
-    profile: "Company Profile",
+  
+  const fetchJobs = async () => {
+    try {
+      const user = jwtDecode(localStorage.getItem('placementHubUser'))
+      // fetching all jobs listing of the current logged in company
+      const response = await fetch(`${backendURL}/api/getJobListings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: user.id
+        })
+      });
+      
+      const data = await response.json();
+      console.log("all jobs listing");
+      console.log(data);
+      
+      if (data.status === "success" && data.jobs) {
+        setJobs(data.jobs);
+      }
+    } catch (error) {
+      console.error("Error fetching jobs:", error);
+    }
   };
 
-  return (
-    <div
-      className={`min-h-screen transition-all duration-500 ${
-        isDark
-          ? "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
-          : "bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50"
-      }`}
-    >
-      {/* Header */}
-      <header
-        className={`sticky top-0 z-40 backdrop-blur-lg border-b transition-all duration-300 ${
-          isDark
-            ? "bg-slate-800/90 border-slate-700"
-            : "bg-white/90 border-slate-200"
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-6 py-4">
+  const fetchStats = async () => {
+    // Replace with actual API call
+    setStats({
+      totalJobs: 5,
+      totalApplications: 156,
+      shortlisted: 48,
+      selected: 12
+    });
+  };
+
+  const handleJobSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const user = jwtDecode(localStorage.getItem('placementHubUser'));
+      
+      // Add company ID to the form data
+      const jobData = {
+        ...jobForm,
+        companyId: user.id
+      };
+      
+      // Use the correct API endpoint
+      const response = await fetch(`${backendURL}/api/jobs`, {
+        method: isEditingJob ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(jobData)
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        // Refresh jobs list
+        await fetchJobs();
+
+        // Reset form and states
+        setJobForm({
+          title: '',
+          description: '',
+          eligibility: '',
+          skills: '',
+          ctc: '',
+          location: '',
+          deadline: ''
+        });
+        setIsAddingJob(false);
+        setIsEditingJob(false);
+      } else {
+        alert("Error: " + (data.message || "Failed to save job"));
+      }
+    } catch (error) {
+      console.error('Error saving job:', error);
+      alert("Error saving job. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const findBestCandidates = async (jobId) => {
+    setLoading(true);
+    setSelectedJob(jobId);
+
+    try {
+      // Replace with actual API call to Flask
+      const mockRecommendations = [
+        {
+          id: 1,
+          name: 'John Doe',
+          email: 'john@example.com',
+          matchPercentage: 92,
+          keySkills: ['React', 'Node.js', 'MongoDB'],
+          missingSkills: ['Docker'],
+          cgpa: 8.5,
+          resumeUrl: '/resumes/john-doe.pdf'
+        },
+        {
+          id: 2,
+          name: 'Jane Smith',
+          email: 'jane@example.com',
+          matchPercentage: 88,
+          keySkills: ['React', 'JavaScript'],
+          missingSkills: ['Node.js', 'MongoDB'],
+          cgpa: 9.1,
+          resumeUrl: '/resumes/jane-smith.pdf'
+        },
+        {
+          id: 3,
+          name: 'Alice Johnson',
+          email: 'alice@example.com',
+          matchPercentage: 85,
+          keySkills: ['Node.js', 'MongoDB'],
+          missingSkills: ['React'],
+          cgpa: 7.8,
+          resumeUrl: '/resumes/alice-johnson.pdf'
+        }
+      ];
+
+      setRecommendations(mockRecommendations);
+      setActiveTab('recommendations');
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleShortlist = async (candidateId) => {
+    try {
+      // API call to shortlist candidate
+      console.log('Shortlisting candidate:', candidateId);
+    } catch (error) {
+      console.error('Error shortlisting candidate:', error);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setLoading(true);
+      try {
+        // Handle file upload
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Replace with actual API call
+        console.log('Uploading selected students list...');
+      } catch (error) {
+        console.error('Error uploading file:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Dashboard Component
+  const Dashboard = () => (
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div
-                className={`p-3 rounded-xl ${
-                  isDark
-                    ? "bg-gradient-to-r from-red-400 to-red-600"
-                    : "bg-gradient-to-r from-red-500 to-red-700"
-                }`}
-              >
-                <Building2 className="w-6 h-6 text-white" />
+            <div>
+              <p className="text-sm text-gray-600">Total Jobs</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalJobs}</p>
+            </div>
+            <Briefcase className="h-10 w-10 text-blue-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Applications</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalApplications}</p>
+            </div>
+            <Users className="h-10 w-10 text-green-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Shortlisted</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.shortlisted}</p>
+            </div>
+            <Star className="h-10 w-10 text-yellow-500" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Selected</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.selected}</p>
+            </div>
+            <TrendingUp className="h-10 w-10 text-purple-500" />
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Jobs */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Recent Job Postings</h3>
+        </div>
+        <div className="p-6">
+          <div className="space-y-4">
+            {jobs.slice(0, 3).map(job => (
+              <div key={job.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="font-medium text-gray-900">{job.title}</h4>
+                  <p className="text-sm text-gray-600">{job.location} • {job.ctc}</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">{job.applications} applications</span>
+                  <button
+                    onClick={() => findBestCandidates(job.id)}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Find Candidates
+                  </button>
+                </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Job Management Component
+  const JobManagement = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900">Job Management</h2>
+        <button
+          onClick={() => setIsAddingJob(true)}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          Add New Job
+        </button>
+      </div>
+
+      {/* Job Form Modal */}
+      {(isAddingJob || isEditingJob) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-semibold mb-4">
+              {isEditingJob ? 'Edit Job' : 'Add New Job'}
+            </h3>
+
+            <form onSubmit={handleJobSubmit} className="space-y-4">
               <div>
-                <h1
-                  className={`text-2xl font-bold ${
-                    isDark ? "text-white" : "text-slate-800"
-                  }`}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Job Title
+                </label>
+                <input
+                  type="text"
+                  value={jobForm.title}
+                  onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={jobForm.description}
+                  onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
+                  rows="4"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Eligibility Criteria
+                </label>
+                <input
+                  type="text"
+                  value={jobForm.eligibility}
+                  onChange={(e) => setJobForm({ ...jobForm, eligibility: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Required Skills
+                </label>
+                <input
+                  type="text"
+                  value={jobForm.skills}
+                  onChange={(e) => setJobForm({ ...jobForm, skills: e.target.value })}
+                  placeholder="Comma separated skills"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    CTC Range
+                  </label>
+                  <input
+                    type="text"
+                    value={jobForm.ctc}
+                    onChange={(e) => setJobForm({ ...jobForm, ctc: e.target.value })}
+                    placeholder="e.g., 8-12 LPA"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={jobForm.location}
+                    onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Application Deadline
+                </label>
+                <input
+                  type="date"
+                  value={jobForm.deadline}
+                  onChange={(e) => setJobForm({ ...jobForm, deadline: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingJob(false);
+                    setIsEditingJob(false);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  TechCorp Inc.
-                </h1>
-                <p
-                  className={`text-sm ${
-                    isDark ? "text-slate-400" : "text-slate-600"
-                  }`}
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Recruitment Dashboard
-                </p>
+                  {loading ? 'Saving...' : 'Save Job'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Jobs List */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Job Title
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Location
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  CTC
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Deadline
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Applications
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {jobs.map(job => (
+                <tr key={job.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{job.title}</div>
+                    <div className="text-sm text-gray-500">{job.description}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {job.location}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {job.ctc}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {job.deadline}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {job.applications}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${job.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                      {job.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => findBestCandidates(job.id)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Find Candidates"
+                      >
+                        <Search className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setJobForm(job);
+                          setIsEditingJob(true);
+                        }}
+                        className="text-indigo-600 hover:text-indigo-900"
+                        title="Edit"
+                      >
+                        <Edit2 className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => console.log('Delete job:', job.id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  // AI Recommendations Component
+  const AIRecommendations = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900">AI Recommended Candidates</h2>
+        <div className="flex space-x-2">
+          <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <Filter className="h-5 w-5 mr-2" />
+            Filter
+          </button>
+          <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            <Save className="h-5 w-5 mr-2" />
+            Save Selected
+          </button>
+        </div>
+      </div>
+
+      {selectedJob && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            Showing recommendations for: <strong>{jobs.find(j => j.id === selectedJob)?.title}</strong>
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {recommendations.map(candidate => (
+          <div key={candidate.id} className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{candidate.name}</h3>
+                <p className="text-sm text-gray-600">{candidate.email}</p>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-blue-600">{candidate.matchPercentage}%</div>
+                <p className="text-xs text-gray-600">Match Score</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-1">Key Skills</p>
+                <div className="flex flex-wrap gap-1">
+                  {candidate.keySkills.map(skill => (
+                    <span key={skill} className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-1">Missing Skills</p>
+                <div className="flex flex-wrap gap-1">
+                  {candidate.missingSkills.map(skill => (
+                    <span key={skill} className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>CGPA: {candidate.cgpa}</span>
+                <a
+                  href={candidate.resumeUrl}
+                  className="flex items-center text-blue-600 hover:text-blue-800"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Resume
+                </a>
+              </div>
+            </div>
+
+            <div className="mt-4 flex space-x-2">
               <button
-                onClick={() => setShowProfileModal(true)}
-                className={`p-2 rounded-lg transition-all duration-300 hover:scale-110 ${
-                  isDark
-                    ? "bg-slate-700 hover:bg-slate-600"
-                    : "bg-slate-100 hover:bg-slate-200"
-                }`}
+                onClick={() => handleShortlist(candidate.id)}
+                className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
               >
-                <Settings
-                  className={`w-5 h-5 ${
-                    isDark ? "text-slate-300" : "text-slate-600"
-                  }`}
-                />
+                Shortlist
               </button>
+              <button className="flex-1 px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50">
+                View Profile
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {recommendations.length === 0 && (
+        <div className="text-center py-12">
+          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">No recommendations available</p>
+          <p className="text-sm text-gray-500 mt-2">Select a job posting and click "Find Best Candidates" to get AI recommendations</p>
+        </div>
+      )}
+    </div>
+  );
+
+  // Result Submission Component
+  const ResultSubmission = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-900">Result Submission</h2>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Upload Selected Students List</h3>
+
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600 mb-2">Upload CSV or Excel file with selected students</p>
+          <input
+            type="file"
+            onChange={handleFileUpload}
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            id="file-upload"
+          />
+          <label
+            htmlFor="file-upload"
+            className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
+          >
+            Choose File
+          </label>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Provide Feedback</h3>
+
+        <form className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Communication Skills
+            </label>
+            <select
+              value={feedbackForm.communication}
+              onChange={(e) => setFeedbackForm({ ...feedbackForm, communication: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select rating</option>
+              <option value="excellent">Excellent</option>
+              <option value="good">Good</option>
+              <option value="average">Average</option>
+              <option value="poor">Poor</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Technical Skills
+            </label>
+            <select
+              value={feedbackForm.technical}
+              onChange={(e) => setFeedbackForm({ ...feedbackForm, technical: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select rating</option>
+              <option value="excellent">Excellent</option>
+              <option value="good">Good</option>
+              <option value="average">Average</option>
+              <option value="poor">Poor</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Overall Experience
+            </label>
+            <select
+              value={feedbackForm.overall}
+              onChange={(e) => setFeedbackForm({ ...feedbackForm, overall: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select rating</option>
+              <option value="excellent">Excellent</option>
+              <option value="good">Good</option>
+              <option value="average">Average</option>
+              <option value="poor">Poor</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Additional Comments
+            </label>
+            <textarea
+              value={feedbackForm.comments}
+              onChange={(e) => setFeedbackForm({ ...feedbackForm, comments: e.target.value })}
+              rows="4"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Any suggestions or feedback for improvement..."
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              Submit Feedback
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <h1 className="text-2xl font-bold text-gray-900">Company Portal</h1>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">Welcome, Company Name</span>
+              <button className="text-sm text-red-600 hover:text-red-800">Logout</button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Navigation Tabs */}
-        <div
-          className={`mb-8 border-b ${
-            isDark ? "border-slate-700" : "border-slate-200"
-          }`}
-        >
-          <div className="flex space-x-8 overflow-x-auto">
-            {Object.entries(tabContent).map(([key, label]) => (
+      {/* Navigation Tabs */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8">
+            {[
+              { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
+              { id: 'jobs', label: 'Job Management', icon: Briefcase },
+              { id: 'recommendations', label: 'AI Recommendations', icon: Users },
+              { id: 'results', label: 'Result Submission', icon: Upload }
+            ].map(tab => (
               <button
-                key={key}
-                onClick={() => {
-                  console.log(key);
-                  setActiveTab(key);
-                }}
-                className={`py-4 px-2 whitespace-nowrap font-medium text-sm transition-all duration-300 border-b-2 ${
-                  activeTab === key
-                    ? isDark
-                      ? "border-purple-400 text-purple-400"
-                      : "border-purple-600 text-purple-600"
-                    : isDark
-                    ? "border-transparent text-slate-400 hover:text-slate-300"
-                    : "border-transparent text-slate-600 hover:text-slate-900"
-                }`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
-                {label}
+                <tab.icon className="h-5 w-5 mr-2" />
+                {tab.label}
               </button>
             ))}
-          </div>
+          </nav>
         </div>
-
-        {/* Overview Tab */}
-        {activeTab === "overview" && (
-          <div className="space-y-8">
-            {/* Company Features */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {features.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <div
-                    onClick={() => {
-                      stat.func();
-                    }}
-                    key={index}
-                    className={`relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:scale-105 cursor-pointer ${
-                      isDark
-                        ? "bg-slate-800/50 border border-slate-700/50"
-                        : "bg-white/80 border border-white/50"
-                    } backdrop-blur-lg shadow-lg hover:shadow-xl`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div
-                          className={`text-lg font-medium ${
-                            isDark ? "text-slate-300" : "text-black"
-                          }`}
-                        >
-                          {stat.title}
-                        </div>
-                      </div>
-                      <div
-                        className={`p-3 rounded-xl bg-gradient-to-r ${stat.color}`}
-                      >
-                        <Icon className="w-6 h-6 text-white" />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* AI Recommendations Tab */}
-        {activeTab === "candidates" && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2
-                  className={`text-2xl font-bold ${
-                    isDark ? "text-white" : "text-slate-800"
-                  }`}
-                >
-                  AI-Recommended Candidates
-                </h2>
-                <p
-                  className={`text-sm mt-1 ${
-                    isDark ? "text-slate-400" : "text-slate-600"
-                  }`}
-                >
-                  Smart matches based on resume-job analysis
-                </p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button
-                  className={`px-4 py-2 rounded-lg transition-all duration-300 flex items-center space-x-2 ${
-                    isDark
-                      ? "bg-slate-700 hover:bg-slate-600"
-                      : "bg-slate-100 hover:bg-slate-200"
-                  }`}
-                >
-                  <Filter
-                    className={`w-4 h-4 ${
-                      isDark ? "text-slate-300" : "text-slate-600"
-                    }`}
-                  />
-                  <span
-                    className={`text-sm font-medium ${
-                      isDark ? "text-slate-300" : "text-slate-600"
-                    }`}
-                  >
-                    Filter
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {aiRecommendedCandidates.map((candidate) => (
-              <div
-                key={candidate.id}
-                className={`p-6 rounded-2xl border transition-all duration-300 hover:scale-[1.01] ${
-                  isDark
-                    ? "bg-slate-800/50 border-slate-700/50"
-                    : "bg-white/80 border-white/50"
-                } backdrop-blur-lg shadow-lg`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4 flex-1">
-                    <div
-                      className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl ${
-                        isDark
-                          ? "bg-gradient-to-r from-purple-500 to-blue-500"
-                          : "bg-gradient-to-r from-purple-600 to-blue-600"
-                      }`}
-                    >
-                      {candidate.name.charAt(0)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3
-                          className={`text-xl font-semibold ${
-                            isDark ? "text-white" : "text-slate-800"
-                          }`}
-                        >
-                          {candidate.name}
-                        </h3>
-                        <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-gradient-to-r from-green-400 to-blue-500">
-                          <Sparkles className="w-4 h-4 text-white" />
-                          <span className="text-sm font-bold text-white">
-                            {candidate.matchScore}% Match
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4 mb-3 text-sm">
-                        <span
-                          className={`flex items-center ${
-                            isDark ? "text-slate-300" : "text-slate-700"
-                          }`}
-                        >
-                          <MapPin className="w-4 h-4 mr-1" />
-                          {candidate.college}
-                        </span>
-                        <span
-                          className={`flex items-center font-medium ${
-                            isDark ? "text-blue-400" : "text-blue-600"
-                          }`}
-                        >
-                          <Star className="w-4 h-4 mr-1" />
-                          {candidate.cgpa} CGPA
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {candidate.skills.map((skill, idx) => (
-                          <span
-                            key={idx}
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              isDark
-                                ? "bg-slate-700 text-slate-300"
-                                : "bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col space-y-2 ml-4">
-                    <button
-                      className={`px-4 py-2 rounded-lg transition-all duration-300 hover:scale-105 flex items-center space-x-2 ${
-                        isDark
-                          ? "bg-blue-500 hover:bg-blue-400"
-                          : "bg-blue-600 hover:bg-blue-500"
-                      }`}
-                    >
-                      <Download className="w-4 h-4 text-white" />
-                      <span className="text-sm font-medium text-white">
-                        Resume
-                      </span>
-                    </button>
-                    <button
-                      className={`px-4 py-2 rounded-lg transition-all duration-300 hover:scale-105 ${
-                        candidate.shortlisted
-                          ? isDark
-                            ? "bg-green-600"
-                            : "bg-green-500"
-                          : isDark
-                          ? "bg-purple-500 hover:bg-purple-400"
-                          : "bg-purple-600 hover:bg-purple-500"
-                      }`}
-                    >
-                      <span className="text-sm font-medium text-white">
-                        {candidate.shortlisted ? "Shortlisted ✓" : "Shortlist"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Job Posting Modal */}
-      {showJobPostModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div
-            className={`max-w-2xl w-full rounded-2xl p-6 max-h-[90vh] overflow-y-auto ${
-              isDark ? "bg-slate-800" : "bg-white"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3
-                className={`text-2xl font-bold ${
-                  isDark ? "text-white" : "text-slate-800"
-                }`}
-              >
-                Create Job Posting
-              </h3>
-              <button
-                onClick={() => setShowJobPostModal(false)}
-                className={`p-2 rounded-lg transition-all duration-300 hover:scale-110 ${
-                  isDark
-                    ? "bg-slate-700 hover:bg-slate-600"
-                    : "bg-slate-100 hover:bg-slate-200"
-                }`}
-              >
-                <X
-                  className={`w-5 h-5 ${
-                    isDark ? "text-slate-300" : "text-slate-600"
-                  }`}
-                />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-300" : "text-slate-700"
-                  }`}
-                >
-                  Job Title
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Software Development Engineer"
-                  className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                  }`}
-                />
-              </div>
-              <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-300" : "text-slate-700"
-                  }`}
-                >
-                  Job Description
-                </label>
-                <textarea
-                  rows={4}
-                  placeholder="Describe the role, responsibilities, and requirements..."
-                  className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                  }`}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  >
-                    CTC Range
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 12-18 LPA"
-                    className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                        : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  >
-                    Number of Positions
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="e.g., 10"
-                    className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                        : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                    }`}
-                  />
-                </div>
-              </div>
-              <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-300" : "text-slate-700"
-                  }`}
-                >
-                  Required Skills
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., React, Node.js, Python (comma separated)"
-                  className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                  }`}
-                />
-              </div>
-              <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-300" : "text-slate-700"
-                  }`}
-                >
-                  Technologies/Tools
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., AWS, Docker, Kubernetes"
-                  className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                  }`}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  >
-                    Minimum CGPA
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="e.g., 7.0"
-                    className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                        : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  >
-                    Eligible Branches
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., CSE, IT, ECE"
-                    className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                        : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                    }`}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  >
-                    Application Deadline
-                  </label>
-                  <input
-                    type="date"
-                    className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white"
-                        : "bg-white border-slate-300 text-slate-900"
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  >
-                    Drive Date
-                  </label>
-                  <input
-                    type="date"
-                    className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white"
-                        : "bg-white border-slate-300 text-slate-900"
-                    }`}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 pt-4">
-                <button
-                  className={`flex-1 px-6 py-3 rounded-lg transition-all duration-300 hover:scale-105 ${
-                    isDark
-                      ? "bg-purple-500 hover:bg-purple-400"
-                      : "bg-purple-600 hover:bg-purple-500"
-                  }`}
-                >
-                  <span className="font-medium text-white">Post Job</span>
-                </button>
-                <button
-                  onClick={() => setShowJobPostModal(false)}
-                  className={`px-6 py-3 rounded-lg transition-all duration-300 ${
-                    isDark
-                      ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                      : "bg-slate-200 hover:bg-slate-300 text-slate-700"
-                  }`}
-                >
-                  <span className="font-medium">Cancel</span>
-                </button>
-              </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {loading && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading...</p>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Profile Modal */}
-      {showProfileModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div
-            className={`max-w-2xl w-full rounded-2xl p-6 max-h-[90vh] overflow-y-auto ${
-              isDark ? "bg-slate-800" : "bg-white"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3
-                className={`text-2xl font-bold ${
-                  isDark ? "text-white" : "text-slate-800"
-                }`}
-              >
-                Company Profile
-              </h3>
-              <button
-                onClick={() => setShowProfileModal(false)}
-                className={`p-2 rounded-lg transition-all duration-300 hover:scale-110 ${
-                  isDark
-                    ? "bg-slate-700 hover:bg-slate-600"
-                    : "bg-slate-100 hover:bg-slate-200"
-                }`}
-              >
-                <X
-                  className={`w-5 h-5 ${
-                    isDark ? "text-slate-300" : "text-slate-600"
-                  }`}
-                />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4 mb-6">
-                <div
-                  className={`w-24 h-24 rounded-xl flex items-center justify-center ${
-                    isDark
-                      ? "bg-gradient-to-r from-purple-500 to-blue-600"
-                      : "bg-gradient-to-r from-purple-600 to-blue-600"
-                  }`}
-                >
-                  <Building2 className="w-12 h-12 text-white" />
-                </div>
-                <button
-                  className={`px-4 py-2 rounded-lg transition-all duration-300 hover:scale-105 flex items-center space-x-2 ${
-                    isDark
-                      ? "bg-slate-700 hover:bg-slate-600"
-                      : "bg-slate-200 hover:bg-slate-300"
-                  }`}
-                >
-                  <Upload
-                    className={`w-4 h-4 ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  />
-                  <span
-                    className={`text-sm font-medium ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  >
-                    Upload Logo
-                  </span>
-                </button>
-              </div>
-              <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-300" : "text-slate-700"
-                  }`}
-                >
-                  Company Name
-                </label>
-                <input
-                  type="text"
-                  defaultValue="TechCorp Inc."
-                  className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white"
-                      : "bg-white border-slate-300 text-slate-900"
-                  }`}
-                />
-              </div>
-              <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-300" : "text-slate-700"
-                  }`}
-                >
-                  Company Description
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Brief description about your company..."
-                  className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                  }`}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  >
-                    Industry
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Technology, Finance"
-                    className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                        : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                    }`}
-                  />
-                </div>
-                <div>
-                  <label
-                    className={`block text-sm font-medium mb-2 ${
-                      isDark ? "text-slate-300" : "text-slate-700"
-                    }`}
-                  >
-                    Company Size
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 1000-5000 employees"
-                    className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                      isDark
-                        ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                        : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                    }`}
-                  />
-                </div>
-              </div>
-              <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-300" : "text-slate-700"
-                  }`}
-                >
-                  Website
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://www.company.com"
-                  className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                    isDark
-                      ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                      : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                  }`}
-                />
-              </div>
-              <div className="pt-4 border-t border-slate-700">
-                <h4
-                  className={`font-semibold mb-4 ${
-                    isDark ? "text-white" : "text-slate-800"
-                  }`}
-                >
-                  HR Contact Information
-                </h4>
-                <div className="space-y-4">
-                  <div>
-                    <label
-                      className={`block text-sm font-medium mb-2 ${
-                        isDark ? "text-slate-300" : "text-slate-700"
-                      }`}
-                    >
-                      HR Name
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Full name"
-                      className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                        isDark
-                          ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                          : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                      }`}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label
-                        className={`block text-sm font-medium mb-2 ${
-                          isDark ? "text-slate-300" : "text-slate-700"
-                        }`}
-                      >
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        placeholder="hr@company.com"
-                        className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                          isDark
-                            ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                            : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className={`block text-sm font-medium mb-2 ${
-                          isDark ? "text-slate-300" : "text-slate-700"
-                        }`}
-                      >
-                        Phone
-                      </label>
-                      <input
-                        type="tel"
-                        placeholder="+91 1234567890"
-                        className={`w-full px-4 py-2 rounded-lg border transition-all duration-300 ${
-                          isDark
-                            ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                            : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                        }`}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 pt-4">
-                <button
-                  className={`flex-1 px-6 py-3 rounded-lg transition-all duration-300 hover:scale-105 flex items-center justify-center space-x-2 ${
-                    isDark
-                      ? "bg-purple-500 hover:bg-purple-400"
-                      : "bg-purple-600 hover:bg-purple-500"
-                  }`}
-                >
-                  <Save className="w-4 h-4 text-white" />
-                  <span className="font-medium text-white">Save Changes</span>
-                </button>
-                <button
-                  onClick={() => setShowProfileModal(false)}
-                  className={`px-6 py-3 rounded-lg transition-all duration-300 ${
-                    isDark
-                      ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                      : "bg-slate-200 hover:bg-slate-300 text-slate-700"
-                  }`}
-                >
-                  <span className="font-medium">Cancel</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        {activeTab === 'dashboard' && <Dashboard />}
+        {activeTab === 'jobs' && <JobManagement />}
+        {activeTab === 'recommendations' && <AIRecommendations />}
+        {activeTab === 'results' && <ResultSubmission />}
+      </main>
     </div>
   );
-}
+};

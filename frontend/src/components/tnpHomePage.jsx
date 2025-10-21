@@ -25,11 +25,19 @@ import {
   Eye,
   CheckCircle,
 } from "lucide-react";
+import { backendURL } from "./functions";
+import { toast } from "react-toastify";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
-// Replace with your backend URL
-const backendURL = "http://localhost:5000";
 
 const TnPHomePage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate()
+  if (user == null || user.role != "admin") {
+    navigate("/")
+  }
+
   const modal = {
     addCompany: "Add New Company",
     editCompany: "Edit Company",
@@ -44,7 +52,7 @@ const TnPHomePage = () => {
   const [students, setStudents] = useState([]);
   const [drives, setDrives] = useState([]);
   const [formData, setFormData] = useState({});
-  const [authToken, setAuthToken] = useState("your-auth-token-here"); // Replace with actual token
+  const [authToken, setAuthToken] = useState(localStorage.getItem("placementHubUser"));
 
   // Fetch companies
   useEffect(() => {
@@ -147,7 +155,6 @@ const TnPHomePage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     if (modalType === "addCompany") {
       fetch(`${backendURL}/api/companies`, {
         method: "POST",
@@ -161,7 +168,8 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log(data);
+          // console.log(data);
+          toast.success("Company Created Successfully")
           closeModal();
         });
     } else if (modalType === "editCompany") {
@@ -177,7 +185,7 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log(data);
+          // console.log(data);
           closeModal();
         });
     } else if (modalType === "addStudent") {
@@ -198,7 +206,11 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
+          if (data.status == "error") {
+            toast.error(data.message)
+          }
           console.log(data);
+          toast.success("Student Created Successfully")
           closeModal();
         })
         .catch((e) => console.log("Error adding student:", e));
@@ -219,7 +231,7 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log(data);
+          // console.log(data);
           closeModal();
         })
         .catch((e) => console.log("Error updating student:", e));
@@ -251,7 +263,7 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log(data);
+          // console.log(data);
           closeModal();
         })
         .catch((e) => console.log("Error creating drive:", e));
@@ -266,7 +278,7 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log(data);
+          // console.log(data);
           setCompanies(companies.filter((c) => c.id !== id));
         })
         .catch((e) => console.log("Error deleting company:", e));
@@ -280,7 +292,7 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log(data);
+          // console.log(data);
           setStudents(students.filter((s) => s._id !== id));
         })
         .catch((e) => console.log("Error deleting student:", e));
@@ -294,7 +306,7 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          console.log(data);
+          // console.log(data);
           setDrives(drives.filter((d) => d._id !== id));
         })
         .catch((e) => console.log("Error deleting drive:", e));
@@ -311,7 +323,7 @@ const TnPHomePage = () => {
     })
       .then((res) => res.json())
       .then((data) => {
-        console.log(data);
+        // console.log(data);
         setStudents(
           students.map((s) => (s._id === id ? { ...s, status: "Approved" } : s))
         );
@@ -560,11 +572,10 @@ const TnPHomePage = () => {
                 <td className="px-6 py-4 text-sm">{student.email}</td>
                 <td className="px-6 py-4 text-sm">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      student.status === "Approved"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
+                    className={`px-2 py-1 rounded-full text-xs ${student.status === "Approved"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-yellow-100 text-yellow-800"
+                      }`}
                   >
                     {student.status}
                   </span>
@@ -660,11 +671,10 @@ const TnPHomePage = () => {
                 </td>
                 <td className="px-6 py-4 text-sm">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      drive.status === "Completed"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}
+                    className={`px-2 py-1 rounded-full text-xs ${drive.status === "Completed"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-blue-100 text-blue-800"
+                      }`}
                   >
                     {drive.status}
                   </span>
@@ -975,51 +985,46 @@ const TnPHomePage = () => {
           <div className="flex space-x-8">
             <button
               onClick={() => setActiveTab("dashboard")}
-              className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === "dashboard"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-600 hover:text-gray-800"
-              }`}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "dashboard"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
             >
               Dashboard
             </button>
             <button
               onClick={() => setActiveTab("companies")}
-              className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === "companies"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-600 hover:text-gray-800"
-              }`}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "companies"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
             >
               Companies
             </button>
             <button
               onClick={() => setActiveTab("students")}
-              className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === "students"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-600 hover:text-gray-800"
-              }`}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "students"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
             >
               Students
             </button>
             <button
               onClick={() => setActiveTab("drives")}
-              className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === "drives"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-600 hover:text-gray-800"
-              }`}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "drives"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
             >
               Drives
             </button>
             <button
               onClick={() => setActiveTab("reports")}
-              className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === "reports"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-600 hover:text-gray-800"
-              }`}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "reports"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
             >
               Reports
             </button>

@@ -17,32 +17,35 @@ import CompanyAddPost from "./components/companyAddPost.jsx";
 import About from "./components/about.jsx";
 import StudentHomePage from "./components/StudentHome.jsx";
 import TnPHomePage from "./components/tnpHomePage.jsx";
+import { AuthProvider } from "./context/AuthContext.jsx";
 
 createRoot(document.getElementById("root")).render(
-  <BrowserRouter>
-    <NavBar />
-    <ToastContainer />
-    <Routes>
-      <Route path="/" element={<App />} />
-      <Route path="/login" element={<Login />} />
-      {/* <Route path="/register" element={<Register />} /> */}
-      <Route path="/home" element={<Home />} />
-      <Route path="/studenthome" element={<StudentHomePage />} />
-      <Route path="/companyhome" element={<CompanyHomePage />} />
-      <Route path="/tnphome" element={<TnPHomePage />} />
-      <Route path="/company/searchStudent" element={<SearchStudent />} />
-      <Route
-        path="/company/searchStudentResult"
-        element={<SearchStudentResult />}
-      />
-      <Route path="/company/createPost" element={<CompanyAddPost />} />
-      <Route path="/forgot-password" element={<ForgetPW />} />
-      <Route
-        path="/company/searchStudentResult"
-        element={<SearchStudentResult />}
-      />
-      <Route path="/about" element={<About />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  </BrowserRouter>
+  <AuthProvider>
+    <BrowserRouter>
+      <NavBar />
+      <ToastContainer />
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route path="/login" element={<Login />} />
+        {/* <Route path="/register" element={<Register />} /> */}
+        <Route path="/home" element={<Home />} />
+        <Route path="/studenthome" element={<StudentHomePage />} />
+        <Route path="/companyhome" element={<CompanyHomePage />} />
+        <Route path="/tnphome" element={<TnPHomePage />} />
+        <Route path="/company/searchStudent" element={<SearchStudent />} />
+        <Route
+          path="/company/searchStudentResult"
+          element={<SearchStudentResult />}
+        />
+        <Route path="/company/createPost" element={<CompanyAddPost />} />
+        <Route path="/forgot-password" element={<ForgetPW />} />
+        <Route
+          path="/company/searchStudentResult"
+          element={<SearchStudentResult />}
+        />
+        <Route path="/about" element={<About />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  </AuthProvider>
 );

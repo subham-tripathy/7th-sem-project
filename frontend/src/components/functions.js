@@ -1,4 +1,4 @@
-export const backendURL = "http://localhost:3000";
+export const backendURL = "http://localhost:6969";
 
 export function validateEmail(email) {
   if (typeof email !== "string") return false;
@@ -10,7 +10,7 @@ export function validateEmail(email) {
   return re.test(value);
 }
 
-export function findStudent(id) {
+export async function findStudent(id) {
   return fetch(`${backendURL}/searchStudent`, {
     method: "GET",
     headers: {

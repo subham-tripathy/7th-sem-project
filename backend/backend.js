@@ -1,52 +1,3 @@
-// const cors = require("cors");
-// const express = require("express");
-// const app = express();
-// const { PrismaClient } = require("@prisma/client");
-// const { signup, login } = require("./backend_functions");
-// const prisma = new PrismaClient();
-// const port = 3000;
-
-// app.use(express.json());
-// app.use(cors());
-
-// app.get("/", (req, res) => {
-//   res.json("Hello, The Node JS Server is running like a F1 Race Car 🏎️");
-// });
-
-// app.get("/allUsers", async (req, res) => {
-//   res.json(await prisma.users.findMany());
-// });
-
-// app.post("/signup", async (req, res) => {
-//   const { id, name, email, pw } = req.body;
-//   const result = await signup(id, name, email, pw);
-//   res.json(result);
-// });
-
-// app.post("/login", async (req, res) => {
-//   const { id, pw } = req.body;
-//   const result = await login(id, pw);
-//   res.json(result);
-// });
-
-// app.post("/searchStudent", async (req, res) => {
-//   const { id } = req.body;
-//   res.json(await prisma.students.findUnique({ where: { id: id } }));
-// });
-
-// app.listen(port, () => {
-//   console.log("node js server is running ✅");
-// });
-
-
-
-
-
-
-
-
-
-
 // server.js - Main Express Server
 const express = require("express");
 const mongoose = require("mongoose");
@@ -77,7 +28,6 @@ const TNPAdminSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ["admin", "superadmin"], default: "admin" },
   fullName: { type: String, required: true },
   phone: String,
   isActive: { type: Boolean, default: true },
@@ -194,7 +144,6 @@ const DriveSchema = new mongoose.Schema({
           "Technical",
           "HR",
           "Group Discussion",
-          "Case Study",
         ],
       },
     },
@@ -333,154 +282,196 @@ const generateId = (prefix, count) => {
   return `${prefix}${String(count + 1).padStart(4, "0")}`;
 };
 
+// Login Route
+app.post("/api/auth/login", async (req, res) => {
+  const { id, pw } = req.body;
+  let usr = null
+
+  // admin user check
+  usr = await TNPAdmin.findOne({ email: id }) || await TNPAdmin.findOne({ username: id })
+  if (usr != null) {
+    const isMatch = await bcrypt.compare(pw, usr.password);
+    if (!isMatch) {
+      return res.json({ status: "error", message: "Password Error" });
+    } else {
+      console.log()
+      console.log(usr.username)
+      console.log(usr.role)
+      console.log()
+      const token = jwt.sign(
+        { id: usr.username, role: "admin" },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+      return res.json({ status: "success", token });
+    }
+  }
+
+  // company user check
+  usr = await Company.findOne({ email: id }) || await Company.findOne({ id: id })
+  if (usr != null) {
+    const isMatch = await bcrypt.compare(pw, usr.password);
+    if (!isMatch) {
+      return res.json({ status: "error", message: "Password Error" });
+    } else {
+      const token = jwt.sign(
+        { id: usr.id, role: "company" },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+      return res.json({ status: "success", token });
+    }
+  }
+
+  // student user check
+  usr = await Student.findOne({ email: id }) || await Student.findOne({ studentId: id })
+  if (usr != null) {
+    const isMatch = await bcrypt.compare(pw, usr.password);
+    if (!isMatch) {
+      return res.json({ status: "error", message: "Password Error" });
+    } else {
+      const token = jwt.sign(
+        { id: usr.studentId, role: "student" },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+      return res.json({ status: "success", token });
+    }
+  }
+
+  return res.json({ status: "error", message: "no user" })
+})
+
 // ==================== AUTH ROUTES ====================
 
-// Admin Login
-app.post("/api/auth/admin/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const admin = await TNPAdmin.findOne({ email });
-    if (!admin || !admin.isActive) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    admin.lastLogin = new Date();
-    await admin.save();
-
-    const token = jwt.sign(
-      { id: admin._id, role: admin.role, type: "admin" },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-
-    res.json({
-      token,
-      admin: {
-        id: admin._id,
-        username: admin.username,
-        email: admin.email,
-        fullName: admin.fullName,
-        role: admin.role,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
-// Admin Registration (Only for initial setup or by superadmin)
-// app.post("/api/auth/admin/register", async (req, res) => {
-//   try {
-//     const { username, email, password, fullName, phone } = req.body;
-
-//     const existingAdmin = await TNPAdmin.findOne({
-//       $or: [{ email }, { username }],
-//     });
-//     if (existingAdmin) {
-//       return res.status(400).json({ message: "Admin already exists" });
-//     }
-
-//     const admin = new TNPAdmin({
-//       username,
-//       email,
-//       password,
-//       fullName,
-//       phone,
-//       role: "admin",
-//     });
-
-//     await admin.save();
-
-//     res.status(201).json({ message: "Admin registered successfully" });
-//   } catch (error) {
-//     res.status(500).json({ message: "Server error", error: error.message });
-//   }
-// });
-
-// Company Login
-app.post("/api/auth/company/login", async (req, res) => {
-  try {
-    const { companyId, password } = req.body;
-
-    const company = await Company.findOne({ companyId });
-    if (!company || company.status !== "Active") {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const isMatch = await bcrypt.compare(password, company.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    company.lastLogin = new Date();
-    await company.save();
-
-    const token = jwt.sign(
-      { id: company._id, companyId: company.companyId, type: "company" },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-
-    res.json({
-      token,
-      company: {
-        id: company._id,
-        companyId: company.companyId,
-        name: company.name,
-        hrName: company.hrName,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
-// Student Login
-app.post("/api/auth/student/login", async (req, res) => {
-  try {
-    const { studentId, password } = req.body;
-
-    const student = await Student.findOne({ studentId });
-    if (!student || student.status === "Disabled") {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const isMatch = await bcrypt.compare(password, student.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    student.lastLogin = new Date();
-    await student.save();
-
-    const token = jwt.sign(
-      { id: student._id, studentId: student.studentId, type: "student" },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-
-    res.json({
-      token,
-      student: {
-        id: student._id,
-        studentId: student.studentId,
-        name: student.name,
-        branch: student.branch,
-        status: student.status,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
 // ==================== COMPANY ROUTES ====================
+
+// Get company features
+app.get("/api/company/features", authMiddleware, async (req, res) => {
+  try {
+    // Check if user is a company
+    if (req.user.role !== "company") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Return available features for company dashboard
+    const features = [
+      {
+        id: 1,
+        title: "Manage Job Postings",
+        urlText: "Post New Jobs",
+        url: "/company/jobs"
+      },
+      {
+        id: 2,
+        title: "Schedule Campus Drives",
+        urlText: "Schedule Drive",
+        url: "/company/drives"
+      },
+      {
+        id: 3,
+        title: "View Student Profiles",
+        urlText: "Browse Students",
+        url: "/company/students"
+      },
+      {
+        id: 4,
+        title: "Company Profile",
+        urlText: "Update Profile",
+        url: "/company/profile"
+      }
+    ];
+    
+    res.json({ status: "success", features });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+// Get job listings for a company
+app.post("/api/getJobListings", async (req, res) => {
+  try {
+    const { id } = req.body;
+    
+    if (!id) {
+      return res.status(400).json({ status: "error", message: "Company ID is required" });
+    }
+    
+    const company = await Company.findOne({ id });
+    
+    if (!company) {
+      return res.status(404).json({ status: "error", message: "Company not found" });
+    }
+    
+    const jobs = await Job.find({ company: company._id });
+    
+    res.json({ status: "success", jobs });
+  } catch (error) {
+    console.error("Error fetching job listings:", error);
+    res.status(500).json({ status: "error", message: "Server error", error: error.message });
+  }
+});
+
+// Create or update job
+app.post("/api/jobs", async (req, res) => {
+  try {
+    const { companyId, title, description, eligibility, skills, ctc, location, deadline, _id } = req.body;
+    
+    if (!companyId || !title) {
+      return res.status(400).json({ status: "error", message: "Company ID and job title are required" });
+    }
+    
+    const company = await Company.findOne({ id: companyId });
+    
+    if (!company) {
+      return res.status(404).json({ status: "error", message: "Company not found" });
+    }
+    
+    // If _id is provided, update existing job
+    if (_id) {
+      const updatedJob = await Job.findByIdAndUpdate(
+        _id,
+        {
+          title,
+          description,
+          role: eligibility,
+          skillsRequired: skills.split(',').map(skill => skill.trim()),
+          package: { min: parseInt(ctc) || 0 },
+          location,
+          applicationDeadline: new Date(deadline),
+          updatedAt: new Date()
+        },
+        { new: true }
+      );
+      
+      return res.json({ status: "success", job: updatedJob });
+    }
+    
+    // Create new job
+    const jobCount = await Job.countDocuments();
+    const jobId = generateId("JOB", jobCount);
+    
+    const newJob = new Job({
+      jobId,
+      company: company._id,
+      companyName: company.name,
+      title,
+      description,
+      role: eligibility,
+      skillsRequired: skills ? skills.split(',').map(skill => skill.trim()) : [],
+      location,
+      package: { min: parseInt(ctc) || 0 },
+      applicationDeadline: deadline ? new Date(deadline) : null
+    });
+    
+    await newJob.save();
+    
+    res.json({ status: "success", job: newJob });
+  } catch (error) {
+    console.error("Error creating/updating job:", error);
+    res.status(500).json({ status: "error", message: "Server error", error: error.message });
+  }
+});
 
 // Get all companies (Admin only)
 app.get("/api/companies", async (req, res) => {
@@ -522,16 +513,13 @@ app.post("/api/companies", async (req, res) => {
       roles,
     } = req.body;
 
-    // Generate random password
-    const generatedPassword = Math.random().toString(36).slice(-8);
-
     const company = new Company({
       id,
       name,
       hrName,
       hrEmail,
       hrPhone,
-      password: generatedPassword,
+      password: id,
       industry,
       website,
       address,
@@ -540,16 +528,9 @@ app.post("/api/companies", async (req, res) => {
 
     await company.save();
 
-    res.status(201).json({
-      message: "Company created successfully",
-      company: {
-        companyId: company.id,
-        password: generatedPassword,
-        name: company.name,
-      },
-    });
+    res.json({ status: "success", message: "Company created successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.json({ status: "error", message: "Server error", error: error.message });
   }
 });
 
@@ -598,7 +579,7 @@ app.delete(
   "/api/companies/:id",
   async (req, res) => {
     try {
-      const company = await Company.findOneAndDelete({id: req.params.id});
+      const company = await Company.findOneAndDelete({ id: req.params.id });
       if (!company) {
         return res.status(404).json({ message: "Company not found" });
       }
@@ -650,22 +631,19 @@ app.post("/api/students", authMiddleware, adminMiddleware, async (req, res) => {
     const studentData = {
       studentId,
       ...req.body,
-      password: req.body.password || Math.random().toString(36).slice(-8),
+      password: studentId,
     };
 
     const student = new Student(studentData);
     await student.save();
 
-    res.status(201).json({
+    res.json({
+      status: "success",
       message: "Student created successfully",
-      student: {
-        studentId: student.studentId,
-        name: student.name,
-        email: student.email,
-      },
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.log(error)
+    res.json({ status: "error", message: "Server error", error: error.message });
   }
 });
 
@@ -1451,27 +1429,11 @@ app.get(
   }
 );
 
-// ==================== UTILITY ROUTES ====================
-
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({ status: "OK", timestamp: new Date() });
-});
-
-// Get all branches
-app.get("/api/utility/branches", (req, res) => {
-  res.json(["CSE", "ECE", "MECH", "CIVIL", "EEE", "IT", "CHEM", "BIO"]);
-});
-
-// Get job types
-app.get("/api/utility/job-types", (req, res) => {
-  res.json(["Full-time", "Internship", "Part-time", "Contract"]);
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
-});
+app.post("/api/getJobListings", async (req, res) => {
+  const { id } = req.body;
+  const jobListings = await Job
+  res.json()
+})
 
 // Start server
 const PORT = process.env.PORT;
