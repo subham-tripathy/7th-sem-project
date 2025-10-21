@@ -1,789 +1,1009 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from "react";
 import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  Building2,
+  Users,
+  Calendar,
+  TrendingUp,
   Plus,
   Edit2,
   Trash2,
-  Search,
-  Download,
-  Star,
-  Save,
   Upload,
-  Users,
-  Briefcase,
-  TrendingUp,
-  Filter,
-} from 'lucide-react';
-import { backendURL } from './functions';
-import { useAuth } from '../context/AuthContext';
-import { jwtDecode } from 'jwt-decode';
+  Download,
+  Eye,
+  CheckCircle,
+} from "lucide-react";
+import { backendURL } from "./functions";
+import { toast } from "react-toastify";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
-export default function CompanyHomePage() {
-  const { user } = useAuth
-  // State Management
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [jobs, setJobs] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [isAddingJob, setIsAddingJob] = useState(false);
-  const [isEditingJob, setIsEditingJob] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({
-    totalJobs: 0,
-    totalApplications: 0,
-    shortlisted: 0,
-    selected: 0
-  });
 
-  // Form States
-  const [jobForm, setJobForm] = useState({
-    title: '',
-    description: '',
-    eligibility: '',
-    skills: '',
-    ctc: '',
-    location: '',
-    deadline: ''
-  });
+const TnPHomePage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate()
+  if (user == null || user.role != "company") {
+    navigate("/")
+  }
 
+  const modal = {
+    addCompany: "Add New Company",
+    editCompany: "Edit Company",
+    addStudent: "Add New Student",
+    editStudent: "Edit Student",
+    addDrive: "Create New Drive",
+  };
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState("");
+  const [companies, setCompanies] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [drives, setDrives] = useState([]);
+  const [formData, setFormData] = useState({});
+  const [authToken, setAuthToken] = useState(localStorage.getItem("placementHubUser"));
+
+  // Fetch drives
   useEffect(() => {
-    fetchJobs();
-    fetchStats();
-  }, []);
-  
-  const fetchJobs = async () => {
-    try {
-      const user = jwtDecode(localStorage.getItem('placementHubUser'))
-      // fetching all jobs listing of the current logged in company
-      const response = await fetch(`${backendURL}/api/getJobListings`, {
+    fetchDrives();
+  }, [showModal]);
+
+  const fetchDrives = () => {
+    fetch(`${backendURL}/api/drives`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setDrives(data);
+      })
+      .catch((e) => {
+        console.log("Error fetching drives:", e);
+      });
+  };
+
+  // Dashboard stats
+  const stats = {
+    activeDrives: drives.filter((d) => d.status === "Scheduled").length,
+    totalPlaced: students.filter((s) => s.isPlaced).length,
+    upcomingDrives: drives.filter((d) => d.status === "Scheduled").length,
+    totalCompanies: companies.length,
+  };
+
+  // Chart data
+  const placementByDept = [
+    { name: "CSE", placements: 65 },
+    { name: "ECE", placements: 42 },
+    { name: "MECH", placements: 28 },
+    { name: "CIVIL", placements: 21 },
+  ];
+
+  const companyParticipation = [
+    { name: "TCS", students: 45 },
+    { name: "Infosys", students: 38 },
+    { name: "Wipro", students: 42 },
+    { name: "Accenture", students: 31 },
+  ];
+
+  const salaryDistribution = [
+    { range: "3-5 LPA", count: 65 },
+    { range: "5-7 LPA", count: 48 },
+    { range: "7-10 LPA", count: 32 },
+    { range: "10+ LPA", count: 11 },
+  ];
+
+  const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+
+  const openModal = (type, data = {}) => {
+    setModalType(type);
+    setFormData(data);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setFormData({});
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (modalType === "addCompany") {
+      fetch(`${backendURL}/api/companies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          hrName: formData.hrName,
+          hrEmail: formData.hrEmail,
+          roles: formData.roles.split(",").map((r) => r.trim()),
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          // console.log(data);
+          toast.success("Company Created Successfully")
+          closeModal();
+        });
+    } else if (modalType === "editCompany") {
+      fetch(`${backendURL}/api/companies/${formData.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          hrName: formData.hrName,
+          hrEmail: formData.hrEmail,
+          roles: formData.roles.split(",").map((r) => r.trim()),
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          // console.log(data);
+          closeModal();
+        });
+    } else if (modalType === "addStudent") {
+      fetch(`${backendURL}/api/students`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          branch: formData.branch,
+          cgpa: parseFloat(formData.cgpa),
+          email: formData.email,
+          resumeLink: formData.resume,
+          password: Math.random().toString(36).slice(-8),
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status == "error") {
+            toast.error(data.message)
+          }
+          console.log(data);
+          toast.success("Student Created Successfully")
+          closeModal();
+        })
+        .catch((e) => console.log("Error adding student:", e));
+    } else if (modalType === "editStudent") {
+      fetch(`${backendURL}/api/students/${formData._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          branch: formData.branch,
+          cgpa: parseFloat(formData.cgpa),
+          email: formData.email,
+          resumeLink: formData.resume,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          // console.log(data);
+          closeModal();
+        })
+        .catch((e) => console.log("Error updating student:", e));
+    } else if (modalType === "addDrive") {
+    
+
+      fetch(`${backendURL}/api/drives`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          id: user.id
+          company: user.id,
+          title: `${formData.company} Recruitment Drive`,
+          description: `Placement drive for ${formData.roles}`,
+          roles: formData.roles.split(",").map((r) => r.trim()),
+          driveDate: new Date(formData.date).toISOString(),
+          eligibilityCriteria: {
+            minCGPA: 6.0,
+            branches: ["CSE", "ECE", "MECH", "CIVIL", "EEE"],
+            maxBacklogs: 0,
+          },
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          // console.log(data);
+          closeModal();
         })
-      });
-      
-      const data = await response.json();
-      console.log("all jobs listing");
-      console.log(data);
-      
-      if (data.status === "success" && data.jobs) {
-        setJobs(data.jobs);
-      }
-    } catch (error) {
-      console.error("Error fetching jobs:", error);
+        .catch((e) => console.log("Error creating drive:", e));
     }
   };
 
-  const fetchStats = async () => {
-    // Replace with actual API call
-    setStats({
-      totalJobs: 5,
-      totalApplications: 156,
-      shortlisted: 48,
-      selected: 12
-    });
-  };
-
-  const handleJobSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const user = jwtDecode(localStorage.getItem('placementHubUser'));
-      
-      // Add company ID to the form data
-      const jobData = {
-        ...jobForm,
-        companyId: user.id
-      };
-      
-      // Use the correct API endpoint
-      const response = await fetch(`${backendURL}/api/jobs`, {
-        method: isEditingJob ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(jobData)
-      });
-      
-      const data = await response.json();
-      
-      if (data.status === "success") {
-        // Refresh jobs list
-        await fetchJobs();
-
-        // Reset form and states
-        setJobForm({
-          title: '',
-          description: '',
-          eligibility: '',
-          skills: '',
-          ctc: '',
-          location: '',
-          deadline: ''
-        });
-        setIsAddingJob(false);
-        setIsEditingJob(false);
-      } else {
-        alert("Error: " + (data.message || "Failed to save job"));
-      }
-    } catch (error) {
-      console.error('Error saving job:', error);
-      alert("Error saving job. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const findBestCandidates = async (jobId) => {
-    setLoading(true);
-    setSelectedJob(jobId);
-
-    try {
-      // Replace with actual API call to Flask
-      const mockRecommendations = [
-        {
-          id: 1,
-          name: 'John Doe',
-          email: 'john@example.com',
-          matchPercentage: 92,
-          keySkills: ['React', 'Node.js', 'MongoDB'],
-          missingSkills: ['Docker'],
-          cgpa: 8.5,
-          resumeUrl: '/resumes/john-doe.pdf'
+  const deleteItem = (type, id) => {
+    if (type === "company") {
+      fetch(`${backendURL}/api/companies/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          // console.log(data);
+          setCompanies(companies.filter((c) => c.id !== id));
+        })
+        .catch((e) => console.log("Error deleting company:", e));
+    } else if (type === "student") {
+      fetch(`${backendURL}/api/students/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
         },
-        {
-          id: 2,
-          name: 'Jane Smith',
-          email: 'jane@example.com',
-          matchPercentage: 88,
-          keySkills: ['React', 'JavaScript'],
-          missingSkills: ['Node.js', 'MongoDB'],
-          cgpa: 9.1,
-          resumeUrl: '/resumes/jane-smith.pdf'
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          // console.log(data);
+          setStudents(students.filter((s) => s._id !== id));
+        })
+        .catch((e) => console.log("Error deleting student:", e));
+    } else if (type === "drive") {
+      fetch(`${backendURL}/api/drives/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
         },
-        {
-          id: 3,
-          name: 'Alice Johnson',
-          email: 'alice@example.com',
-          matchPercentage: 85,
-          keySkills: ['Node.js', 'MongoDB'],
-          missingSkills: ['React'],
-          cgpa: 7.8,
-          resumeUrl: '/resumes/alice-johnson.pdf'
-        }
-      ];
-
-      setRecommendations(mockRecommendations);
-      setActiveTab('recommendations');
-    } catch (error) {
-      console.error('Error fetching recommendations:', error);
-    } finally {
-      setLoading(false);
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          // console.log(data);
+          setDrives(drives.filter((d) => d._id !== id));
+        })
+        .catch((e) => console.log("Error deleting drive:", e));
     }
   };
 
-  const handleShortlist = async (candidateId) => {
-    try {
-      // API call to shortlist candidate
-      console.log('Shortlisting candidate:', candidateId);
-    } catch (error) {
-      console.error('Error shortlisting candidate:', error);
-    }
+  const approveStudent = (id) => {
+    fetch(`${backendURL}/api/students/${id}/approve`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        // console.log(data);
+        setStudents(
+          students.map((s) => (s._id === id ? { ...s, status: "Approved" } : s))
+        );
+      })
+      .catch((e) => console.log("Error approving student:", e));
   };
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setLoading(true);
-      try {
-        // Handle file upload
-        const formData = new FormData();
-        formData.append('file', file);
-
-        // Replace with actual API call
-        console.log('Uploading selected students list...');
-      } catch (error) {
-        console.error('Error uploading file:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-
-  // Dashboard Component
-  const Dashboard = () => (
+  const renderDashboard = () => (
     <div className="space-y-6">
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Jobs</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalJobs}</p>
+              <p className="text-blue-600 text-sm font-medium">Active Drives</p>
+              <p className="text-3xl font-bold text-blue-900 mt-2">
+                {stats.activeDrives}
+              </p>
             </div>
-            <Briefcase className="h-10 w-10 text-blue-500" />
+            <Calendar className="w-12 h-12 text-blue-400" />
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-green-50 p-6 rounded-lg border border-green-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Applications</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalApplications}</p>
+              <p className="text-green-600 text-sm font-medium">
+                Students Placed
+              </p>
+              <p className="text-3xl font-bold text-green-900 mt-2">
+                {stats.totalPlaced}
+              </p>
             </div>
-            <Users className="h-10 w-10 text-green-500" />
+            <Users className="w-12 h-12 text-green-400" />
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Shortlisted</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.shortlisted}</p>
+              <p className="text-orange-600 text-sm font-medium">
+                Upcoming Drives
+              </p>
+              <p className="text-3xl font-bold text-orange-900 mt-2">
+                {stats.upcomingDrives}
+              </p>
             </div>
-            <Star className="h-10 w-10 text-yellow-500" />
+            <TrendingUp className="w-12 h-12 text-orange-400" />
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Selected</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.selected}</p>
+              <p className="text-purple-600 text-sm font-medium">Companies</p>
+              <p className="text-3xl font-bold text-purple-900 mt-2">
+                {stats.totalCompanies}
+              </p>
             </div>
-            <TrendingUp className="h-10 w-10 text-purple-500" />
+            <Building2 className="w-12 h-12 text-purple-400" />
           </div>
         </div>
       </div>
 
-      {/* Recent Jobs */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Recent Job Postings</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">
+            Placements by Department
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={placementByDept}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="placements" fill="#3B82F6" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            {jobs.slice(0, 3).map(job => (
-              <div key={job.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="font-medium text-gray-900">{job.title}</h4>
-                  <p className="text-sm text-gray-600">{job.location} • {job.ctc}</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-600">{job.applications} applications</span>
-                  <button
-                    onClick={() => findBestCandidates(job.id)}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Find Candidates
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Company Participation</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={companyParticipation}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) =>
+                  `${name} ${(percent * 100).toFixed(0)}%`
+                }
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="students"
+              >
+                {companyParticipation.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
   );
 
-  // Job Management Component
-  const JobManagement = () => (
-    <div className="space-y-6">
+  const renderCompanies = () => (
+    <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Job Management</h2>
+        <h2 className="text-2xl font-bold">Company Management</h2>
         <button
-          onClick={() => setIsAddingJob(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          onClick={() => openModal("addCompany")}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
         >
-          <Plus className="h-5 w-5 mr-2" />
-          Add New Job
+          <Plus className="w-4 h-4" /> Add Company
         </button>
       </div>
 
-      {/* Job Form Modal */}
-      {(isAddingJob || isEditingJob) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">
-              {isEditingJob ? 'Edit Job' : 'Add New Job'}
-            </h3>
-
-            <form onSubmit={handleJobSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Job Title
-                </label>
-                <input
-                  type="text"
-                  value={jobForm.title}
-                  onChange={(e) => setJobForm({ ...jobForm, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={jobForm.description}
-                  onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
-                  rows="4"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Eligibility Criteria
-                </label>
-                <input
-                  type="text"
-                  value={jobForm.eligibility}
-                  onChange={(e) => setJobForm({ ...jobForm, eligibility: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Required Skills
-                </label>
-                <input
-                  type="text"
-                  value={jobForm.skills}
-                  onChange={(e) => setJobForm({ ...jobForm, skills: e.target.value })}
-                  placeholder="Comma separated skills"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    CTC Range
-                  </label>
-                  <input
-                    type="text"
-                    value={jobForm.ctc}
-                    onChange={(e) => setJobForm({ ...jobForm, ctc: e.target.value })}
-                    placeholder="e.g., 8-12 LPA"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={jobForm.location}
-                    onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Application Deadline
-                </label>
-                <input
-                  type="date"
-                  value={jobForm.deadline}
-                  onChange={(e) => setJobForm({ ...jobForm, deadline: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddingJob(false);
-                    setIsEditingJob(false);
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {loading ? 'Saving...' : 'Save Job'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Jobs List */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Job Title
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  CTC
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Deadline
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Applications
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                ID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Company
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                HR Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Email
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Roles
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {companies.map((company) => (
+              <tr key={company.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm">{company.id}</td>
+                <td className="px-6 py-4 text-sm font-medium">
+                  {company.name}
+                </td>
+                <td className="px-6 py-4 text-sm">{company.hrName}</td>
+                <td className="px-6 py-4 text-sm">{company.hrEmail}</td>
+                <td className="px-6 py-4 text-sm">
+                  {Array.isArray(company.roles)
+                    ? company.roles.join(", ")
+                    : company.roles}
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                    {company.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openModal("editCompany", company)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteItem("company", company.id)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {jobs.map(job => (
-                <tr key={job.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{job.title}</div>
-                    <div className="text-sm text-gray-500">{job.description}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {job.location}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {job.ctc}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {job.deadline}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {job.applications}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${job.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                      {job.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => findBestCandidates(job.id)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Find Candidates"
-                      >
-                        <Search className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setJobForm(job);
-                          setIsEditingJob(true);
-                        }}
-                        className="text-indigo-600 hover:text-indigo-900"
-                        title="Edit"
-                      >
-                        <Edit2 className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => console.log('Delete job:', job.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 
-  // AI Recommendations Component
-  const AIRecommendations = () => (
+  const renderStudents = () => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Student Management</h2>
+        <div className="flex gap-2">
+          <button className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700">
+            <Upload className="w-4 h-4" /> Bulk Upload
+          </button>
+          <button
+            onClick={() => openModal("addStudent")}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" /> Add Student
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                ID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Branch
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                CGPA
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Email
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {students.map((student) => (
+              <tr key={student._id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm">{student.studentId}</td>
+                <td className="px-6 py-4 text-sm font-medium">
+                  {student.name}
+                </td>
+                <td className="px-6 py-4 text-sm">{student.branch}</td>
+                <td className="px-6 py-4 text-sm">{student.cgpa}</td>
+                <td className="px-6 py-4 text-sm">{student.email}</td>
+                <td className="px-6 py-4 text-sm">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${student.status === "Approved"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-yellow-100 text-yellow-800"
+                      }`}
+                  >
+                    {student.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  <div className="flex gap-2">
+                    {student.status === "Pending" && (
+                      <button
+                        onClick={() => approveStudent(student._id)}
+                        className="text-green-600 hover:text-green-800"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => openModal("editStudent", student)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteItem("student", student._id)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderDrives = () => (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Drive Management</h2>
+        <button
+          onClick={() => openModal("addDrive")}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
+        >
+          <Plus className="w-4 h-4" /> Create Drive
+        </button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                ID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Company
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Roles
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Students
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {drives.map((drive) => (
+              <tr key={drive._id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 text-sm">{drive.driveId}</td>
+                <td className="px-6 py-4 text-sm font-medium">
+                  {drive.companyName}
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  {new Date(drive.driveDate).toLocaleDateString()}
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  {Array.isArray(drive.roles)
+                    ? drive.roles.join(", ")
+                    : drive.roles}
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  {drive.registeredStudents?.length || 0}
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${drive.status === "Completed"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-blue-100 text-blue-800"
+                      }`}
+                  >
+                    {drive.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  <div className="flex gap-2">
+                    <button className="text-blue-600 hover:text-blue-800">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    {drive.status === "Completed" && (
+                      <button className="text-green-600 hover:text-green-800">
+                        <Upload className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteItem("drive", drive._id)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderReports = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">AI Recommended Candidates</h2>
-        <div className="flex space-x-2">
-          <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-            <Filter className="h-5 w-5 mr-2" />
-            Filter
+        <h2 className="text-2xl font-bold">Reports & Analytics</h2>
+        <div className="flex gap-2">
+          <button className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-700">
+            <Download className="w-4 h-4" /> Export PDF
           </button>
-          <button className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-            <Save className="h-5 w-5 mr-2" />
-            Save Selected
+          <button className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700">
+            <Download className="w-4 h-4" /> Export Excel
           </button>
         </div>
       </div>
 
-      {selectedJob && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
-            Showing recommendations for: <strong>{jobs.find(j => j.id === selectedJob)?.title}</strong>
-          </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <p className="text-gray-600 text-sm">Total Placements</p>
+          <p className="text-3xl font-bold text-blue-600 mt-2">{stats.totalPlaced}</p>
         </div>
-      )}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <p className="text-gray-600 text-sm">Highest Package</p>
+          <p className="text-3xl font-bold text-green-600 mt-2">₹18 LPA</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <p className="text-gray-600 text-sm">Average Package</p>
+          <p className="text-3xl font-bold text-orange-600 mt-2">₹6.2 LPA</p>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {recommendations.map(candidate => (
-          <div key={candidate.id} className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{candidate.name}</h3>
-                <p className="text-sm text-gray-600">{candidate.email}</p>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-blue-600">{candidate.matchPercentage}%</div>
-                <p className="text-xs text-gray-600">Match Score</p>
-              </div>
-            </div>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold mb-4">Salary Distribution</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={salaryDistribution}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="range" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="count" fill="#8B5CF6" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">Key Skills</p>
-                <div className="flex flex-wrap gap-1">
-                  {candidate.keySkills.map(skill => (
-                    <span key={skill} className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold mb-4">
+          Job Category Distribution
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center p-4 bg-blue-50 rounded-lg">
+            <p className="text-2xl font-bold text-blue-600">42%</p>
+            <p className="text-sm text-gray-600 mt-1">IT/Software</p>
+          </div>
+          <div className="text-center p-4 bg-green-50 rounded-lg">
+            <p className="text-2xl font-bold text-green-600">28%</p>
+            <p className="text-sm text-gray-600 mt-1">Core Engineering</p>
+          </div>
+          <div className="text-center p-4 bg-orange-50 rounded-lg">
+            <p className="text-2xl font-bold text-orange-600">18%</p>
+            <p className="text-sm text-gray-600 mt-1">Consulting</p>
+          </div>
+          <div className="text-center p-4 bg-purple-50 rounded-lg">
+            <p className="text-2xl font-bold text-purple-600">12%</p>
+            <p className="text-sm text-gray-600 mt-1">Others</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">Missing Skills</p>
-                <div className="flex flex-wrap gap-1">
-                  {candidate.missingSkills.map(skill => (
-                    <span key={skill} className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
+  const renderModal = () => {
+    if (!showModal) return null;
 
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>CGPA: {candidate.cgpa}</span>
-                <a
-                  href={candidate.resumeUrl}
-                  className="flex items-center text-blue-600 hover:text-blue-800"
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <h3 className="text-xl font-bold mb-4">{modal[modalType]}</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {(modalType === "addCompany" || modalType === "editCompany") && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Company Name"
+                  value={formData.name || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="HR Name"
+                  value={formData.hrName || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, hrName: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="HR Email"
+                  value={formData.hrEmail || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, hrEmail: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Role Titles (comma separated)"
+                  value={
+                    Array.isArray(formData.roles)
+                      ? formData.roles.join(", ")
+                      : formData.roles || ""
+                  }
+                  onChange={(e) =>
+                    setFormData({ ...formData, roles: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+              </>
+            )}
+
+            {(modalType === "addStudent" || modalType === "editStudent") && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Student Name"
+                  value={formData.name || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+                <select
+                  value={formData.branch || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, branch: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
                 >
-                  <Download className="h-4 w-4 mr-1" />
-                  Resume
-                </a>
-              </div>
-            </div>
+                  <option value="">Select Branch</option>
+                  <option value="CSE">CSE</option>
+                  <option value="ECE">ECE</option>
+                  <option value="MECH">MECH</option>
+                  <option value="CIVIL">CIVIL</option>
+                  <option value="EEE">EEE</option>
+                </select>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="CGPA"
+                  value={formData.cgpa || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cgpa: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={formData.email || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Resume Link"
+                  value={formData.resumeLink || formData.resume || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, resume: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+              </>
+            )}
 
-            <div className="mt-4 flex space-x-2">
+            {modalType === "addDrive" && (
+              <>
+                <select
+                  value={formData.company || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, company: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                >
+                  <option value={user.id}>{user.id}</option>
+                  {companies.map((c) => (
+                    <option key={c._id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={formData.date || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, date: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Role Titles (comma separated)"
+                  value={formData.roles || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, roles: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+              </>
+            )}
+
+            <div className="flex gap-2 justify-end mt-6">
               <button
-                onClick={() => handleShortlist(candidate.id)}
-                className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                type="button"
+                onClick={closeModal}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
-                Shortlist
+                Cancel
               </button>
-              <button className="flex-1 px-3 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50">
-                View Profile
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                {modalType.includes("edit") ? "Update" : "Create"}
               </button>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {recommendations.length === 0 && (
-        <div className="text-center py-12">
-          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No recommendations available</p>
-          <p className="text-sm text-gray-500 mt-2">Select a job posting and click "Find Best Candidates" to get AI recommendations</p>
-        </div>
-      )}
-    </div>
-  );
-
-  // Result Submission Component
-  const ResultSubmission = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Result Submission</h2>
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-4">Upload Selected Students List</h3>
-
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-          <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 mb-2">Upload CSV or Excel file with selected students</p>
-          <input
-            type="file"
-            onChange={handleFileUpload}
-            accept=".csv,.xlsx,.xls"
-            className="hidden"
-            id="file-upload"
-          />
-          <label
-            htmlFor="file-upload"
-            className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
-          >
-            Choose File
-          </label>
+          </form>
         </div>
       </div>
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-4">Provide Feedback</h3>
-
-        <form className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Communication Skills
-            </label>
-            <select
-              value={feedbackForm.communication}
-              onChange={(e) => setFeedbackForm({ ...feedbackForm, communication: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select rating</option>
-              <option value="excellent">Excellent</option>
-              <option value="good">Good</option>
-              <option value="average">Average</option>
-              <option value="poor">Poor</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Technical Skills
-            </label>
-            <select
-              value={feedbackForm.technical}
-              onChange={(e) => setFeedbackForm({ ...feedbackForm, technical: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select rating</option>
-              <option value="excellent">Excellent</option>
-              <option value="good">Good</option>
-              <option value="average">Average</option>
-              <option value="poor">Poor</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Overall Experience
-            </label>
-            <select
-              value={feedbackForm.overall}
-              onChange={(e) => setFeedbackForm({ ...feedbackForm, overall: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select rating</option>
-              <option value="excellent">Excellent</option>
-              <option value="good">Good</option>
-              <option value="average">Average</option>
-              <option value="poor">Poor</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Additional Comments
-            </label>
-            <textarea
-              value={feedbackForm.comments}
-              onChange={(e) => setFeedbackForm({ ...feedbackForm, comments: e.target.value })}
-              rows="4"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Any suggestions or feedback for improvement..."
-            />
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              Submit Feedback
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <h1 className="text-2xl font-bold text-gray-900">Company Portal</h1>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, Company Name</span>
-              <button className="text-sm text-red-600 hover:text-red-800">Logout</button>
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                TNP Dashboard
+              </h1>
+              <p className="text-sm text-gray-600">
+                Training & Placement Management System
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm font-medium">Admin User</p>
+                <p className="text-xs text-gray-600">admin@college.edu</p>
+              </div>
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                A
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
-            {[
-              { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
-              { id: 'jobs', label: 'Job Management', icon: Briefcase },
-              { id: 'recommendations', label: 'AI Recommendations', icon: Users },
-              { id: 'results', label: 'Result Submission', icon: Upload }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                <tab.icon className="h-5 w-5 mr-2" />
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+      {/* Navigation */}
+      <nav className="bg-white border-b">
+        <div className="px-6">
+          <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab("dashboard")}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "dashboard"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab("companies")}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "companies"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
+            >
+              Companies
+            </button>
+            <button
+              onClick={() => setActiveTab("students")}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "students"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
+            >
+              Students
+            </button>
+            <button
+              onClick={() => setActiveTab("drives")}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "drives"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
+            >
+              Drives
+            </button>
+            <button
+              onClick={() => setActiveTab("reports")}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "reports"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
+            >
+              Reports
+            </button>
+          </div>
         </div>
-      </div>
+      </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {loading && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading...</p>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'dashboard' && <Dashboard />}
-        {activeTab === 'jobs' && <JobManagement />}
-        {activeTab === 'recommendations' && <AIRecommendations />}
-        {activeTab === 'results' && <ResultSubmission />}
+      <main className="px-6 py-8">
+        {activeTab === "dashboard" && renderDashboard()}
+        {activeTab === "companies" && renderCompanies()}
+        {activeTab === "students" && renderStudents()}
+        {activeTab === "drives" && renderDrives()}
+        {activeTab === "reports" && renderReports()}
       </main>
+
+      {/* Modal */}
+      {renderModal()}
     </div>
   );
 };
+
+export default TnPHomePage

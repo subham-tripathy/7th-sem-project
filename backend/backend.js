@@ -766,7 +766,7 @@ app.delete(
 // ==================== DRIVE ROUTES ====================
 
 // Get all drives
-app.get("/api/drives", authMiddleware, async (req, res) => {
+app.get("/api/drives", async (req, res) => {
   try {
     const { status } = req.query;
     const filter = status ? { status } : {};
@@ -783,7 +783,7 @@ app.get("/api/drives", authMiddleware, async (req, res) => {
 });
 
 // Get single drive
-app.get("/api/drives/:id", authMiddleware, async (req, res) => {
+app.get("/api/drives/:id", async (req, res) => {
   try {
     const drive = await Drive.findById(req.params.id)
       .populate("company", "name hrName hrEmail")
@@ -802,12 +802,12 @@ app.get("/api/drives/:id", authMiddleware, async (req, res) => {
 });
 
 // Create new drive (Admin only)
-app.post("/api/drives", authMiddleware, adminMiddleware, async (req, res) => {
+app.post("/api/drives", async (req, res) => {
   try {
     const count = await Drive.countDocuments();
     const driveId = generateId("DRV", count);
 
-    const company = await Company.findById(req.body.company);
+    const company = await Company.findOne({id:req.body.company});
     if (!company) {
       return res.status(404).json({ message: "Company not found" });
     }
