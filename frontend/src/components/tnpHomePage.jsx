@@ -24,12 +24,17 @@ import {
   Download,
   Eye,
   CheckCircle,
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Save,
+  Camera,
 } from "lucide-react";
 import { backendURL } from "./functions";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-
 
 const TnPHomePage = () => {
   const { user } = useAuth();
@@ -53,6 +58,26 @@ const TnPHomePage = () => {
   const [drives, setDrives] = useState([]);
   const [formData, setFormData] = useState({});
   const [authToken, setAuthToken] = useState(localStorage.getItem("placementHubUser"));
+  
+  // Profile state
+  const [profileData, setProfileData] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: "",
+    department: "",
+    designation: "",
+    employeeId: user?.id || "",
+    address: "",
+    bio: "",
+  });
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
+  const [changePassword, setChangePassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
 
   // Fetch companies
   useEffect(() => {
@@ -68,6 +93,39 @@ const TnPHomePage = () => {
   useEffect(() => {
     fetchDrives();
   }, [showModal]);
+
+  // Fetch profile data
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
+
+  const fetchProfileData = () => {
+    // Fetch user profile data
+    fetch(`${backendURL}/api/admin/profile`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data) {
+          setProfileData({
+            name: data.name || user?.name || "",
+            email: data.email || user?.email || "",
+            phone: data.phone || "",
+            department: data.department || "",
+            designation: data.designation || "",
+            employeeId: data.employeeId || user?.id || "",
+            address: data.address || "",
+            bio: data.bio || "",
+          });
+          setProfileImage(data.profileImage || null);
+        }
+      })
+      .catch((e) => {
+        console.log("Error fetching profile:", e);
+      });
+  };
 
   const fetchCompanies = () => {
     fetch(`${backendURL}/api/companies`)
@@ -168,7 +226,6 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          // console.log(data);
           toast.success("Company Created Successfully")
           closeModal();
         });
@@ -185,7 +242,6 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          // console.log(data);
           closeModal();
         });
     } else if (modalType === "addStudent") {
@@ -231,7 +287,6 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          // console.log(data);
           closeModal();
         })
         .catch((e) => console.log("Error updating student:", e));
@@ -249,7 +304,7 @@ const TnPHomePage = () => {
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          company: company._id,
+          company: company.id,
           title: `${formData.company} Recruitment Drive`,
           description: `Placement drive for ${formData.roles}`,
           roles: formData.roles.split(",").map((r) => r.trim()),
@@ -263,10 +318,79 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          // console.log(data);
           closeModal();
         })
         .catch((e) => console.log("Error creating drive:", e));
+    }
+  };
+
+  const handleProfileUpdate = (e) => {
+    e.preventDefault();
+    fetch(`${backendURL}/api/admin/profile`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(profileData),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        toast.success("Profile updated successfully");
+        setIsEditingProfile(false);
+      })
+      .catch((e) => {
+        console.log("Error updating profile:", e);
+        toast.error("Failed to update profile");
+      });
+  };
+
+  const handlePasswordChange = (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    
+    fetch(`${backendURL}/api/admin/change-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          toast.success("Password changed successfully");
+          setPasswordData({
+            currentPassword: "",
+            newPassword: "",
+            confirmPassword: "",
+          });
+          setChangePassword(false);
+        } else {
+          toast.error(data.message || "Failed to change password");
+        }
+      })
+      .catch((e) => {
+        console.log("Error changing password:", e);
+        toast.error("Failed to change password");
+      });
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImage(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -278,7 +402,6 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          // console.log(data);
           setCompanies(companies.filter((c) => c.id !== id));
         })
         .catch((e) => console.log("Error deleting company:", e));
@@ -292,7 +415,6 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          // console.log(data);
           setStudents(students.filter((s) => s._id !== id));
         })
         .catch((e) => console.log("Error deleting student:", e));
@@ -306,7 +428,6 @@ const TnPHomePage = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          // console.log(data);
           setDrives(drives.filter((d) => d._id !== id));
         })
         .catch((e) => console.log("Error deleting drive:", e));
@@ -323,13 +444,287 @@ const TnPHomePage = () => {
     })
       .then((res) => res.json())
       .then((data) => {
-        // console.log(data);
         setStudents(
           students.map((s) => (s._id === id ? { ...s, status: "Approved" } : s))
         );
       })
       .catch((e) => console.log("Error approving student:", e));
   };
+
+  const renderProfile = () => (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">Profile Settings</h2>
+          {!isEditingProfile && (
+            <button
+              onClick={() => setIsEditingProfile(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
+            >
+              <Edit2 className="w-4 h-4" /> Edit Profile
+            </button>
+          )}
+        </div>
+
+        {/* Profile Image Section */}
+        <div className="flex items-center space-x-6 mb-6">
+          <div className="relative">
+            <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+              {profileImage ? (
+                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-12 h-12 text-gray-400" />
+              )}
+            </div>
+            {isEditingProfile && (
+              <label className="absolute bottom-0 right-0 bg-blue-600 rounded-full p-2 cursor-pointer hover:bg-blue-700">
+                <Camera className="w-4 h-4 text-white" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold">{profileData.name}</h3>
+            <p className="text-gray-600">{profileData.designation || "TNP Admin"}</p>
+            <p className="text-sm text-gray-500">{profileData.employeeId}</p>
+          </div>
+        </div>
+
+        {/* Profile Form */}
+        <form onSubmit={handleProfileUpdate} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={profileData.name}
+                onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                disabled={!isEditingProfile}
+                className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={profileData.email}
+                onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                disabled={!isEditingProfile}
+                className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={profileData.phone}
+                onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                disabled={!isEditingProfile}
+                className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Department
+              </label>
+              <input
+                type="text"
+                value={profileData.department}
+                onChange={(e) => setProfileData({ ...profileData, department: e.target.value })}
+                disabled={!isEditingProfile}
+                className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Designation
+              </label>
+              <input
+                type="text"
+                value={profileData.designation}
+                onChange={(e) => setProfileData({ ...profileData, designation: e.target.value })}
+                disabled={!isEditingProfile}
+                className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Employee ID
+              </label>
+              <input
+                type="text"
+                value={profileData.employeeId}
+                disabled
+                className="w-full px-3 py-2 border rounded-lg bg-gray-50"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Address
+            </label>
+            <textarea
+              value={profileData.address}
+              onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+              disabled={!isEditingProfile}
+              rows="3"
+              className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Bio
+            </label>
+            <textarea
+              value={profileData.bio}
+              onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+              disabled={!isEditingProfile}
+              rows="4"
+              placeholder="Tell us about yourself..."
+              className="w-full px-3 py-2 border rounded-lg disabled:bg-gray-50"
+            />
+          </div>
+
+          {isEditingProfile && (
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingProfile(false);
+                  fetchProfileData();
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" /> Save Changes
+              </button>
+            </div>
+          )}
+        </form>
+      </div>
+
+      {/* Change Password Section */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Security Settings</h3>
+          {!changePassword && (
+            <button
+              onClick={() => setChangePassword(true)}
+              className="text-blue-600 hover:text-blue-700 flex items-center gap-2"
+            >
+              <Lock className="w-4 h-4" /> Change Password
+            </button>
+          )}
+        </div>
+
+        {changePassword && (
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Current Password
+              </label>
+              <input
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                New Password
+              </label>
+              <input
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setChangePassword(false);
+                  setPasswordData({
+                    currentPassword: "",
+                    newPassword: "",
+                    confirmPassword: "",
+                  });
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Update Password
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* Activity Log Section */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between py-2 border-b">
+            <div>
+              <p className="text-sm font-medium">Profile Updated</p>
+              <p className="text-xs text-gray-500">2 hours ago</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b">
+            <div>
+              <p className="text-sm font-medium">New Drive Created</p>
+              <p className="text-xs text-gray-500">1 day ago</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between py-2 border-b">
+            <div>
+              <p className="text-sm font-medium">Student Approved</p>
+              <p className="text-xs text-gray-500">2 days ago</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderDashboard = () => (
     <div className="space-y-6">
@@ -968,12 +1363,15 @@ const TnPHomePage = () => {
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-sm font-medium">Admin User</p>
-                <p className="text-xs text-gray-600">admin@college.edu</p>
+                <p className="text-sm font-medium">{user.name}</p>
+                <p className="text-xs text-gray-600">{user.id}</p>
               </div>
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                A
-              </div>
+              <button
+                onClick={() => setActiveTab("profile")}
+                className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold hover:bg-blue-700 cursor-pointer"
+              >
+                {user.name ? user.name.charAt(0).toUpperCase() : "A"}
+              </button>
             </div>
           </div>
         </div>
@@ -1028,6 +1426,15 @@ const TnPHomePage = () => {
             >
               Reports
             </button>
+            <button
+              onClick={() => setActiveTab("profile")}
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${activeTab === "profile"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
+            >
+              Profile
+            </button>
           </div>
         </div>
       </nav>
@@ -1039,6 +1446,7 @@ const TnPHomePage = () => {
         {activeTab === "students" && renderStudents()}
         {activeTab === "drives" && renderDrives()}
         {activeTab === "reports" && renderReports()}
+        {activeTab === "profile" && renderProfile()}
       </main>
 
       {/* Modal */}
@@ -1047,4 +1455,4 @@ const TnPHomePage = () => {
   );
 };
 
-export default TnPHomePage
+export default TnPHomePage;

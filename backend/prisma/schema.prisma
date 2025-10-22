@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model TNPAdmin {
+  id        String    @id @default(cuid())
+  username  String    @unique
+  email     String    @unique
+  password  String
+  fullName  String
+  phone     String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  lastLogin DateTime?
+}
+
+model Company {
+  id        String    @id @default(cuid())
+  name      String
+  hrName    String
+  hrEmail   String    @unique
+  hrPhone   String?
+  password  String
+  industry  String?
+  website   String?
+  address   String?
+  roles     String?
+  status    String    @default("Active")
+  createdAt DateTime  @default(now())
+  lastLogin DateTime?
+
+  drives Drive[] @relation("CompanyDrives")
+}
+
+model Student {
+  id                String    @id @default(cuid())
+  studentId         String    @unique
+  name              String
+  email             String    @unique
+  password          String
+  branch            String
+  cgpa              Float
+  semester          Int?
+  phone             String?
+  dateOfBirth       DateTime?
+  address           String?
+  resumeLink        String?
+  skills            String?
+  certifications    String?
+  status            String    @default("Pending")
+  isPlaced          Boolean   @default(false)
+  placedCompany     String?
+  placedRole        String?
+  placedPackage     Float?
+  backlogs          Int       @default(0)
+  tenthPercentage   Float?
+  twelfthPercentage Float?
+  createdAt         DateTime  @default(now())
+  lastLogin         DateTime?
+
+  registeredDrives  Drive[] @relation("RegisteredStudents")
+  shortlistedDrives Drive[] @relation("ShortlistedStudents")
+  selectedDrives    Drive[] @relation("SelectedStudents")
+}
+
+model Drive {
+  id                   String    @id @default(cuid())
+  driveId              String    @unique
+  companyId            String
+  company              Company   @relation("CompanyDrives", fields: [companyId], references: [id])
+  companyName          String?
+  title                String
+  description          String?
+  roles                String?
+  eligibilityCriteria  Json
+  driveDate            DateTime
+  registrationDeadline DateTime?
+  venue                String?
+  rounds               Json?
+  status               String    @default("Scheduled")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now())
+
+  registeredStudents  Student[] @relation("RegisteredStudents")
+  shortlistedStudents Student[] @relation("ShortlistedStudents")
+  selectedStudents    Student[] @relation("SelectedStudents")
+}
